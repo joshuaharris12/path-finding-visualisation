@@ -24,8 +24,8 @@ tasks.withType(JavaCompile) {
 }
 
 application {
-    mainModule = 'org.joshuaharris.pathfindingvisualisation'
-    mainClass = 'org.joshuaharris.pathfindingvisualisation.HelloApplication'
+    mainModule = 'org.joshuaharris.visualisation'
+    mainClass = 'org.joshuaharris.visualisation.MainApplication'
 }
 
 javafx {
