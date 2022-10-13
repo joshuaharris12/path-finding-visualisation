@@ -4,7 +4,6 @@ import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.scene.Cursor;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.layout.*;
 import org.joshuaharris.visualisation.exceptions.ButtonNotFoundException;
 import org.joshuaharris.visualisation.exceptions.InvalidButtonIdException;
@@ -18,11 +17,16 @@ public class View {
     private static final String FREE_SPACE_STYLE = "-fx-background-color: #ffffff";
     private static final String WALL_STYLE = "-fx-background-color: #002626";
     private static final String PATH_STYLE = "-fx-background-color: #95C623";
+    private static final String START_SQUARE_STYLE = "-fx-background-color: blue";
+    private static final String TARGET_SQUARE_STYLE = "-fx-background-color: red";
     private int height;
     private int width;
     private Button[][] gridButtons;
     private Graph graph;
     private Pane pane;
+
+    private Square startSquare;
+    private Square targetSquare;
 
 
     public View(int height, int width) {
@@ -31,6 +35,8 @@ public class View {
         this.gridButtons = new Button[height][width];
         this.graph = new Graph(height, width);
         createView();
+        this.startSquare = null;
+        this.targetSquare = null;
     }
 
     public Pane getView() {
@@ -47,7 +53,7 @@ public class View {
                 btn.setId(String.format("%d-%d", row, col));
                 btn.setStyle(FREE_SPACE_STYLE);
                 btn.setOnAction(this::handleButtonPress);
-                btn.setMinSize(50,50);
+                btn.setMinSize(30,30);
 
                 this.gridButtons[row][col] = btn;
                 gridPane.add(btn, col, row);
@@ -74,27 +80,33 @@ public class View {
         dfsBtn.setCursor(Cursor.HAND);
         dfsBtn.setOnAction(a -> performAlgorithm(AlgorithmType.DFS));
 
-        bottomBar.getChildren().addAll(dfsBtn, clearBtn);
+        Button bfsBtn = new Button("Breadth-first Search");
+        bfsBtn.setCursor(Cursor.HAND);
+        bfsBtn.setOnAction(a -> performAlgorithm(AlgorithmType.BFS));
+
+        bottomBar.getChildren().addAll(dfsBtn, bfsBtn, clearBtn);
         return bottomBar;
     }
 
     private void handleButtonPress(ActionEvent event) {
         Button btn = ((Button) event.getSource());
-        String buttonId = btn.getId();
-        if (buttonId == null) throw new ButtonNotFoundException("Invalid Button Id");
+        Square square = getSquareAssociatedWithButton(btn);
 
-        String[] coordinates = buttonId.split("-");
-        if (coordinates.length != 2) throw new InvalidButtonIdException("Invalid Button Id");
-        int row = Integer.parseInt(coordinates[0]);
-        int col = Integer.parseInt(coordinates[1]);
-        Square square = new Square(col, row);
-
-        if (graph.isWall(square)) {
-            graph.removeWall(square);
-            this.gridButtons[row][col].setStyle(FREE_SPACE_STYLE);
+        if (this.startSquare == null) {
+            this.startSquare = getSquareAssociatedWithButton(btn);
+            btn.setStyle(START_SQUARE_STYLE);
+        }
+        else if (this.targetSquare == null) {
+            this.targetSquare = getSquareAssociatedWithButton(btn);
+            btn.setStyle(TARGET_SQUARE_STYLE);
         } else {
-            graph.setWall(square);
-            this.gridButtons[row][col].setStyle(WALL_STYLE);
+            if (graph.isWall(square)) {
+                graph.removeWall(square);
+                this.gridButtons[square.getRow()][square.getCol()].setStyle(FREE_SPACE_STYLE);
+            } else {
+                graph.setWall(square);
+                this.gridButtons[square.getRow()][square.getCol()].setStyle(WALL_STYLE);
+            }
         }
     }
 
@@ -106,22 +118,28 @@ public class View {
         }
 
         this.graph.refresh();
+        this.startSquare = null;
+        this.targetSquare = null;
     }
 
     private void performAlgorithm(AlgorithmType type) {
-        List<Square> path = AlgorithmController.performAlgorithm(
-                type,
-                this.graph,
-                new Square(0,0),
-                new Square(9,9));
-        removePreviousPath();
-        for (Square square : path) {
-            int row = square.getRow();
-            int col = square.getCol();
+        if (this.startSquare != null && this.targetSquare != null) {
 
-            this.gridButtons[row][col].setStyle(PATH_STYLE);
+            List<Square> path = AlgorithmController.performAlgorithm(
+                    type,
+                    this.graph,
+                    startSquare,
+                    targetSquare);
+            removePreviousPath();
+            if (path.size() > 2) path.remove(0);
+            if (path.size() > 2) path.remove(path.size()-1);
+            for (Square square : path) {
+                int row = square.getRow();
+                int col = square.getCol();
+
+                this.gridButtons[row][col].setStyle(PATH_STYLE);
+            }
         }
-
     }
 
     private void removePreviousPath() {
@@ -132,6 +150,18 @@ public class View {
                 }
             }
         }
+    }
+
+    private Square getSquareAssociatedWithButton(Button button) {
+        String buttonId = button.getId();
+        if (buttonId == null) throw new ButtonNotFoundException("Invalid Button Id");
+
+        String[] coordinates = buttonId.split("-");
+        if (coordinates.length != 2) throw new InvalidButtonIdException("Invalid Button Id");
+        int row = Integer.parseInt(coordinates[0]);
+        int col = Integer.parseInt(coordinates[1]);
+        Square square = new Square(col, row);
+        return square;
     }
 
 
